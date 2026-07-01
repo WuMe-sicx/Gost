@@ -18,6 +18,16 @@
 
 > 注：本分支跟随 [ginuerzh/gost](https://github.com/ginuerzh/gost) 官方最新发行版（当前 v2.12.0，安装时自动获取最新版本）。gost 2.12.0 起官方改用 tar.gz 打包，脚本已适配。
 
+## 镜像加速（可选）
+
+国内机器直连 GitHub 较慢时，可用 Cloudflare R2（免流出费、无需备案）做下载镜像：
+
+1. 用 `tools/upload-r2.sh <bucket>` 把各架构的 gost 发行包与 `gost.service`/`config.json`/`gost.sh` 上传到 R2（脚本头部有一次性配置说明）。
+2. 给 R2 存储桶绑定一个公开自定义域名。
+3. 在 `gost.sh` 顶部把 `R2_MIRROR` 设为该域名（如 `R2_MIRROR="https://mirror.example.com"`）。
+
+设置后安装时会询问是否走镜像，脚本自更新也会优先使用镜像；留空则始终走 GitHub。
+
 ## 功能
 
 ### 原脚本功能

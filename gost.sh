@@ -2,10 +2,15 @@
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Font_color_suffix="\033[0m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
 Error="${Red_font_prefix}[错误]${Font_color_suffix}"
-shell_version="1.2.0"
+shell_version="1.3.0"
 ct_new_ver="2.12.0" # fallback 版本；实际安装时跟随 ginuerzh/gost 最新发行版
 gost_conf_path="/etc/gost/config.json"
 raw_conf_path="/etc/gost/rawconf"
+# 可选镜像加速：设为你的 Cloudflare R2 公开域名 base URL（不带结尾斜杠），
+# 例如 R2_MIRROR="https://mirror.example.com"，留空则始终走 GitHub。
+# 镜像需为扁平结构，包含：gost_<ver>_linux_<arch>.tar.gz、gost.service、config.json、gost.sh
+# 上传见 tools/upload-r2.sh
+R2_MIRROR=""
 function checknew() {
   checknew=$(gost -V 2>&1 | awk '{print $2}')
   # check_new_ver
@@ -97,16 +102,26 @@ function Install_ct() {
   check_file
   check_sys
   check_new_ver
+  # 下载源：默认 GitHub；若配置了 R2_MIRROR 可选择镜像加速（国内更快、无需备案）
+  gost_base="https://github.com/ginuerzh/gost/releases/download/v${ct_new_ver}"
+  repo_base="https://raw.githubusercontent.com/WuMe-sicx/Gost/v2"
+  if [ -n "$R2_MIRROR" ]; then
+    read -e -p "是否使用镜像加速下载 (${R2_MIRROR})？[y/n]:" usemirror
+    if [[ ${usemirror} == [Yy] ]]; then
+      gost_base="$R2_MIRROR"
+      repo_base="$R2_MIRROR"
+    fi
+  fi
   # gost 2.12.0 起改用 GoReleaser 打包：gost_<ver>_linux_<arch>.tar.gz，内含 gost 二进制
   gost_pkg="gost_${ct_new_ver}_linux_${bit}.tar.gz"
   rm -rf "$gost_pkg" gost
-  wget --no-check-certificate "https://github.com/ginuerzh/gost/releases/download/v${ct_new_ver}/${gost_pkg}"
+  wget --no-check-certificate "${gost_base}/${gost_pkg}"
   tar -xzf "$gost_pkg" gost
   mv gost /usr/bin/gost
   chmod 755 /usr/bin/gost
   rm -rf "$gost_pkg"
-  wget --no-check-certificate https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.service && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
-  mkdir -p /etc/gost && wget --no-check-certificate https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/config.json && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
+  wget --no-check-certificate "${repo_base}/gost.service" && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
+  mkdir -p /etc/gost && wget --no-check-certificate "${repo_base}/config.json" && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
 
   systemctl enable gost && systemctl restart gost
   echo "------------------------------"
@@ -1050,14 +1065,16 @@ cron_restart() {
 }
 
 update_sh() {
-  ol_version=$(curl -L -s --connect-timeout 5 https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.sh | grep "shell_version=" | head -1 | awk -F '=|"' '{print $3}')
+  local sh_url="https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.sh"
+  [ -n "$R2_MIRROR" ] && sh_url="${R2_MIRROR}/gost.sh"
+  ol_version=$(curl -L -s --connect-timeout 5 "$sh_url" | grep "shell_version=" | head -1 | awk -F '=|"' '{print $3}')
   if [ -n "$ol_version" ]; then
     if [[ "$shell_version" != "$ol_version" ]]; then
       echo -e "存在新版本，是否更新 [Y/N]?"
       read -r update_confirm
       case $update_confirm in
       [yY][eE][sS] | [yY])
-        wget -N --no-check-certificate https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.sh
+        wget -N --no-check-certificate "$sh_url"
         echo -e "更新完成"
         exit 0
         ;;
