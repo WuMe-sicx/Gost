@@ -2,8 +2,8 @@
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Font_color_suffix="\033[0m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
 Error="${Red_font_prefix}[错误]${Font_color_suffix}"
-shell_version="1.1.1"
-ct_new_ver="2.11.2" # 2.x 不再跟随官方更新
+shell_version="1.2.0"
+ct_new_ver="2.12.0" # fallback 版本；实际安装时跟随 ginuerzh/gost 最新发行版
 gost_conf_path="/etc/gost/config.json"
 raw_conf_path="/etc/gost/rawconf"
 function checknew() {
@@ -39,12 +39,18 @@ function check_sys() {
     release="centos"
   fi
   bit=$(uname -m)
-  if test "$bit" != "x86_64"; then
-    echo "请输入你的芯片架构，/386/armv5/armv6/armv7/armv8"
+  case "$bit" in
+  x86_64 | amd64) bit="amd64" ;;
+  aarch64 | arm64) bit="arm64" ;;
+  armv7* ) bit="armv7" ;;
+  armv6* ) bit="armv6" ;;
+  armv5* ) bit="armv5" ;;
+  i386 | i686) bit="386" ;;
+  *)
+    echo "无法自动识别架构 ($bit)，请手动输入 (amd64/386/arm64/armv7/armv6/armv5):"
     read bit
-  else
-    bit="amd64"
-  fi
+    ;;
+  esac
 }
 function Installation_dependency() {
   gzip_ver=$(gzip -V)
@@ -62,10 +68,9 @@ function check_root() {
   [[ $EUID != 0 ]] && echo -e "${Error} 当前非ROOT账号(或没有ROOT权限)，无法继续操作，请更换ROOT账号或使用 ${Green_background_prefix}sudo su${Font_color_suffix} 命令获取临时ROOT权限（执行后可能会提示输入当前账号的密码）。" && exit 1
 }
 function check_new_ver() {
-  # deprecated
   ct_new_ver=$(wget --no-check-certificate -qO- -t2 -T3 https://api.github.com/repos/ginuerzh/gost/releases/latest | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g;s/v//g')
   if [[ -z ${ct_new_ver} ]]; then
-    ct_new_ver="2.11.2"
+    ct_new_ver="2.12.0"
     echo -e "${Error} gost 最新版本获取失败，正在下载v${ct_new_ver}版"
   else
     echo -e "${Info} gost 目前最新版本为 ${ct_new_ver}"
@@ -91,29 +96,17 @@ function Install_ct() {
   Installation_dependency
   check_file
   check_sys
-  # check_new_ver
-  echo -e "若为国内机器建议使用大陆镜像加速下载"
-  read -e -p "是否使用？[y/n]:" addyn
-  [[ -z ${addyn} ]] && addyn="n"
-  if [[ ${addyn} == [Yy] ]]; then
-    rm -rf gost-linux-"$bit"-"$ct_new_ver".gz
-    wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/gost-linux-"$bit"-"$ct_new_ver".gz
-    gunzip gost-linux-"$bit"-"$ct_new_ver".gz
-    mv gost-linux-"$bit"-"$ct_new_ver" gost
-    mv gost /usr/bin/gost
-    chmod 755 /usr/bin/gost
-    wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/gost.service && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
-    mkdir /etc/gost && wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/config.json && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
-  else
-    rm -rf gost-linux-"$bit"-"$ct_new_ver".gz
-    wget --no-check-certificate https://github.com/ginuerzh/gost/releases/download/v"$ct_new_ver"/gost-linux-"$bit"-"$ct_new_ver".gz
-    gunzip gost-linux-"$bit"-"$ct_new_ver".gz
-    mv gost-linux-"$bit"-"$ct_new_ver" gost
-    mv gost /usr/bin/gost
-    chmod 755 /usr/bin/gost
-    wget --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/gost.service && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
-    mkdir /etc/gost && wget --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/config.json && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
-  fi
+  check_new_ver
+  # gost 2.12.0 起改用 GoReleaser 打包：gost_<ver>_linux_<arch>.tar.gz，内含 gost 二进制
+  gost_pkg="gost_${ct_new_ver}_linux_${bit}.tar.gz"
+  rm -rf "$gost_pkg" gost
+  wget --no-check-certificate "https://github.com/ginuerzh/gost/releases/download/v${ct_new_ver}/${gost_pkg}"
+  tar -xzf "$gost_pkg" gost
+  mv gost /usr/bin/gost
+  chmod 755 /usr/bin/gost
+  rm -rf "$gost_pkg"
+  wget --no-check-certificate https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.service && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
+  mkdir -p /etc/gost && wget --no-check-certificate https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/config.json && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
 
   systemctl enable gost && systemctl restart gost
   echo "------------------------------"
@@ -875,14 +868,14 @@ cron_restart() {
 }
 
 update_sh() {
-  ol_version=$(curl -L -s --connect-timeout 5 https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/gost.sh | grep "shell_version=" | head -1 | awk -F '=|"' '{print $3}')
+  ol_version=$(curl -L -s --connect-timeout 5 https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.sh | grep "shell_version=" | head -1 | awk -F '=|"' '{print $3}')
   if [ -n "$ol_version" ]; then
     if [[ "$shell_version" != "$ol_version" ]]; then
       echo -e "存在新版本，是否更新 [Y/N]?"
       read -r update_confirm
       case $update_confirm in
       [yY][eE][sS] | [yY])
-        wget -N --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/gost.sh
+        wget -N --no-check-certificate https://raw.githubusercontent.com/WuMe-sicx/Gost/v2/gost.sh
         echo -e "更新完成"
         exit 0
         ;;
