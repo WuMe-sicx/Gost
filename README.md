@@ -47,12 +47,39 @@
   - relay+wss
   - relay+mtls / relay+mws / relay+mwss（多路复用，高并发更省连接，mwss 适合 CDN 场景）
 - 落地机一键创建ss/socks5/http代理 (gost内置)
+- 落地机一键创建 ss over ws/mws/wss/mwss（菜单[7]，兼容 mihomo/Clash.Meta，见下方对接表）
 - 支持多传输类型的多落地简单型均衡负载
-- ~~增加gost国内加速下载镜像~~（被恶意刷流量导致我损失，不再提供）
+- 可选 Cloudflare R2 下载镜像（见上方「镜像加速」，免流出费、无需备案）
 - 简单创建或删除gost定时重启任务
 - 脚本自动检查更新
 - 转发CDN自选节点ip
 - 支持自定义tls证书，落地可一键申请证书，中转可开启证书校验
+
+## 客户端对接 mihomo / Clash.Meta（菜单[7] ss over ws/mws/wss/mwss）
+
+落地机用菜单[7]创建后，客户端按下表填 `plugin: gost-plugin`，`path` 固定为 `/`：
+
+| 落地选择 | 服务端节点 | mihomo `plugin-opts` |
+|---|---|---|
+| ss+ws | `ss+ws://cipher:pw@:port?path=/` | `mode: websocket, path: /` |
+| ss+mws | `ss+mws://…?path=/` | `mode: websocket, path: /, mux: true` |
+| ss+wss | `ss+wss://…?path=/` | `mode: websocket, path: /, tls: true` |
+| ss+mwss | `ss+mwss://…?path=/` | `mode: websocket, path: /, tls: true, mux: true` |
+
+```yaml
+proxies:
+  - name: gost-ss
+    type: ss
+    server: your.domain.com   # 套 CDN 时填 CDN 域名
+    port: 443
+    cipher: aes-256-gcm       # 与落地一致；AEAD_CHACHA20_POLY1305 在此写 chacha20-ietf-poly1305
+    password: "your-pw"
+    plugin: gost-plugin
+    plugin-opts: { mode: websocket, path: /, tls: true, mux: true }  # 对应 ss+mwss
+    # 用脚本内置自签证书时加 skip-cert-verify: true；自定义证书填对应域名即可
+```
+
+> gost 的 mux 用的是 xtaci/smux，与 v2ray-plugin 的 mux 不兼容，`m` 开头的务必用 `gost-plugin`（不是 `v2ray-plugin`）。
 
 ## 功能展示
 

@@ -2,7 +2,7 @@
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Font_color_suffix="\033[0m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
 Error="${Red_font_prefix}[错误]${Font_color_suffix}"
-shell_version="1.3.0"
+shell_version="1.4.0"
 ct_new_ver="2.12.0" # fallback 版本；实际安装时跟随 ginuerzh/gost 最新发行版
 gost_conf_path="/etc/gost/config.json"
 raw_conf_path="/etc/gost/rawconf"
@@ -187,6 +187,9 @@ function read_protocol() {
   echo -e "[6] 进阶：转发CDN自选节点"
   echo -e "说明: 只需在中转机设置"
   echo -e "-----------------------------------"
+  echo -e "[7] shadowsocks over ws/mws/wss/mwss"
+  echo -e "说明: 落地机直接对外提供 ss 代理, 兼容 mihomo/Clash.Meta 的 gost-plugin, 适合套 CDN"
+  echo -e "-----------------------------------"
   read -p "请选择: " numprotocol
 
   if [ "$numprotocol" == "1" ]; then
@@ -201,13 +204,15 @@ function read_protocol() {
     enpeer
   elif [ "$numprotocol" == "6" ]; then
     cdn
+  elif [ "$numprotocol" == "7" ]; then
+    ssplugin
   else
     echo "type error, please try again"
     exit
   fi
 }
 function read_s_port() {
-  if [ "$flag_a" == "ss" ]; then
+  if [[ "$flag_a" == ss* ]]; then
     echo -e "-----------------------------------"
     read -p "请输入ss密码: " flag_b
   elif [ "$flag_a" == "socks" ]; then
@@ -223,7 +228,7 @@ function read_s_port() {
   fi
 }
 function read_d_ip() {
-  if [ "$flag_a" == "ss" ]; then
+  if [[ "$flag_a" == ss* ]]; then
     echo -e "------------------------------------------------------------------"
     echo -e "请问您要设置的ss加密(仅提供常用的几种): "
     echo -e "-----------------------------------"
@@ -315,7 +320,7 @@ function read_d_ip() {
   fi
 }
 function read_d_port() {
-  if [ "$flag_a" == "ss" ]; then
+  if [[ "$flag_a" == ss* ]]; then
     echo -e "------------------------------------------------------------------"
     echo -e "请问你要设置ss代理服务的端口?"
     read -p "请输入: " flag_d
@@ -630,322 +635,101 @@ function proxy() {
     exit
   fi
 }
-function method() {
-  if [ $i -eq 1 ]; then
-    if [ "$is_encrypt" == "nonencrypt" ]; then
-      echo "        \"tcp://:$s_port/$d_ip:$d_port\",
-        \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnno" ]; then
-      echo "        \"tcp://:$s_port/$d_ip?host=$d_port\",
-        \"udp://:$s_port/$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peerno" ]; then
-      echo "        \"tcp://:$s_port?ip=/root/$d_ip.txt&strategy=$d_port\",
-        \"udp://:$s_port?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encrypttls" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+tls://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptws" ]; then
-      echo "        \"tcp://:$s_port\",
-    	\"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-    	\"relay+ws://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptwss" ]; then
-      echo "        \"tcp://:$s_port\",
-		  \"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-		\"relay+wss://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peertls" ]; then
-      echo "        \"tcp://:$s_port\",
-    	\"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-    	\"relay+tls://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peerws" ]; then
-      echo "        \"tcp://:$s_port\",
-    	\"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-    	\"relay+ws://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peerwss" ]; then
-      echo "        \"tcp://:$s_port\",
-    	\"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-    	\"relay+wss://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnws" ]; then
-      echo "        \"tcp://:$s_port\",
-    	\"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-    	\"relay+ws://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnwss" ]; then
-      echo "        \"tcp://:$s_port\",
-    	\"udp://:$s_port\"
-	],
-	\"ChainNodes\": [
-    	\"relay+wss://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decrypttls" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "        \"relay+tls://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "        \"relay+tls://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    elif [ "$is_encrypt" == "decryptws" ]; then
-      echo "        \"relay+ws://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decryptwss" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "        \"relay+wss://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "        \"relay+wss://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    elif [ "$is_encrypt" == "ss" ]; then
-      echo "        \"ss://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "socks" ]; then
-      echo "        \"socks5://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "http" ]; then
-      echo "        \"http://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptmtls" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mtls://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptmws" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mws://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptmwss" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mwss://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peermtls" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mtls://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peermws" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mws://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peermwss" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mwss://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnmws" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mws://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnmwss" ]; then
-      echo "        \"tcp://:$s_port\",
-        \"udp://:$s_port\"
-    ],
-    \"ChainNodes\": [
-        \"relay+mwss://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decryptmtls" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "        \"relay+mtls://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "        \"relay+mtls://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    elif [ "$is_encrypt" == "decryptmws" ]; then
-      echo "        \"relay+mws://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decryptmwss" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "        \"relay+mwss://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "        \"relay+mwss://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    else
-      echo "config error"
-    fi
-  elif [ $i -gt 1 ]; then
-    if [ "$is_encrypt" == "nonencrypt" ]; then
-      echo "                \"tcp://:$s_port/$d_ip:$d_port\",
-                \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peerno" ]; then
-      echo "                \"tcp://:$s_port?ip=/root/$d_ip.txt&strategy=$d_port\",
-                \"udp://:$s_port?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnno" ]; then
-      echo "                \"tcp://:$s_port/$d_ip?host=$d_port\",
-                \"udp://:$s_port/$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encrypttls" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+tls://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptws" ]; then
-      echo "                \"tcp://:$s_port\",
-	            \"udp://:$s_port\"
-	        ],
-	        \"ChainNodes\": [
-	            \"relay+ws://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptwss" ]; then
-      echo "                \"tcp://:$s_port\",
-		        \"udp://:$s_port\"
-		    ],
-		    \"ChainNodes\": [
-		        \"relay+wss://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peertls" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+tls://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peerws" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+ws://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peerwss" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+wss://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnws" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+ws://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnwss" ]; then
-      echo "                 \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+wss://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decrypttls" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "        		  \"relay+tls://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "        		  \"relay+tls://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    elif [ "$is_encrypt" == "decryptws" ]; then
-      echo "        		  \"relay+ws://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decryptwss" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "        		  \"relay+wss://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "        		  \"relay+wss://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    elif [ "$is_encrypt" == "ss" ]; then
-      echo "        \"ss://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "socks" ]; then
-      echo "        \"socks5://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "http" ]; then
-      echo "        \"http://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptmtls" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mtls://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptmws" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mws://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "encryptmwss" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mwss://$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peermtls" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mtls://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peermws" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mws://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "peermwss" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mwss://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnmws" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mws://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "cdnmwss" ]; then
-      echo "                \"tcp://:$s_port\",
-                \"udp://:$s_port\"
-            ],
-            \"ChainNodes\": [
-                \"relay+mwss://$d_ip?host=$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decryptmtls" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "                \"relay+mtls://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "                \"relay+mtls://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    elif [ "$is_encrypt" == "decryptmws" ]; then
-      echo "                \"relay+mws://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-    elif [ "$is_encrypt" == "decryptmwss" ]; then
-      if [ -d "$HOME/gost_cert" ]; then
-        echo "                \"relay+mwss://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
-      else
-        echo "                \"relay+mwss://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
-      fi
-    else
-      echo "config error"
-    fi
+function ssplugin() {
+  echo -e "------------------------------------------------------------------"
+  echo -e "shadowsocks 传输类型 (客户端用 mihomo/Clash.Meta 的 gost-plugin 对接): "
+  echo -e "-----------------------------------"
+  echo -e "[1] ss+ws   (websocket)"
+  echo -e "[2] ss+mws  (websocket + 多路复用)"
+  echo -e "[3] ss+wss  (websocket + TLS, 可套 CDN)"
+  echo -e "[4] ss+mwss (websocket + TLS + 多路复用, 套 CDN 推荐)"
+  echo -e "注意: 路径固定为 /, 客户端 plugin-opts 需设 mode=websocket、path=/、"
+  echo -e "      mux=true(m开头)、tls=true(wss结尾); wss/mwss 建议先用[11]配置自定义证书"
+  echo -e "-----------------------------------"
+  read -p "请选择: " numssp
+  if [ "$numssp" == "1" ]; then
+    flag_a="ssws"
+  elif [ "$numssp" == "2" ]; then
+    flag_a="ssmws"
+  elif [ "$numssp" == "3" ]; then
+    flag_a="sswss"
+  elif [ "$numssp" == "4" ]; then
+    flag_a="ssmwss"
   else
-    echo "config error"
+    echo "type error, please try again"
     exit
   fi
 }
-
+function method() {
+  # 生成单条规则的 ServeNodes（及可选 ChainNodes）写入 $gost_conf_path。
+  # 调用方已设好 is_encrypt/s_port/d_ip/d_port。缩进仅为美观(JSON 忽略)，
+  # 故顶层节点(i==1)与 Route 节点(i>1)共用同一份 body。
+  local scheme proto q cert=""
+  [ -d "$HOME/gost_cert" ] && cert="cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem"
+  case "$is_encrypt" in
+  nonencrypt)
+    echo "        \"tcp://:$s_port/$d_ip:$d_port\",
+        \"udp://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path ;;
+  cdnno)
+    echo "        \"tcp://:$s_port/$d_ip?host=$d_port\",
+        \"udp://:$s_port/$d_ip?host=$d_port\"" >>$gost_conf_path ;;
+  peerno)
+    echo "        \"tcp://:$s_port?ip=/root/$d_ip.txt&strategy=$d_port\",
+        \"udp://:$s_port?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path ;;
+  encrypt*)
+    scheme="${is_encrypt#encrypt}"
+    echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+$scheme://$d_ip:$d_port\"" >>$gost_conf_path ;;
+  peertls | peerws | peerwss | peermtls | peermws | peermwss)
+    scheme="${is_encrypt#peer}"
+    echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+$scheme://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path ;;
+  cdnws | cdnwss | cdnmws | cdnmwss)
+    scheme="${is_encrypt#cdn}"
+    echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+$scheme://$d_ip?host=$d_port\"" >>$gost_conf_path ;;
+  decrypttls | decryptmtls | decryptwss | decryptmwss)
+    scheme="${is_encrypt#decrypt}"
+    echo "        \"relay+$scheme://:$s_port/$d_ip:$d_port${cert:+?$cert}\"" >>$gost_conf_path ;;
+  decryptws | decryptmws)
+    scheme="${is_encrypt#decrypt}"
+    echo "        \"relay+$scheme://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path ;;
+  ss | socks | http)
+    case "$is_encrypt" in ss) proto=ss ;; socks) proto=socks5 ;; http) proto=http ;; esac
+    echo "        \"$proto://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path ;;
+  ssws | ssmws | sswss | ssmwss)
+    # shadowsocks over ws/mws/wss/mwss，兼容 mihomo/Clash.Meta 的 gost-plugin。
+    # ponytail: path 固定为 /（客户端 plugin-opts.path 也须为 /）；如需自定义 path 才要扩展 rawconf 字段
+    scheme="${is_encrypt#ss}"
+    q="path=/"
+    case "$scheme" in wss | mwss) [ -n "$cert" ] && q="$q&$cert" ;; esac
+    echo "        \"ss+$scheme://$d_ip:$s_port@:$d_port?$q\"" >>$gost_conf_path ;;
+  *)
+    echo "config error" ;;
+  esac
+}
 function writeconf() {
   count_line=$(awk 'END{print NR}' $raw_conf_path)
-  for ((i = 1; i <= $count_line; i++)); do
+  for ((i = 1; i <= count_line; i++)); do
+    trans_conf=$(sed -n "${i}p" $raw_conf_path)
+    eachconf_retrieve
     if [ $i -eq 1 ]; then
-      trans_conf=$(sed -n "${i}p" $raw_conf_path)
-      eachconf_retrieve
       method
-    elif [ $i -gt 1 ]; then
-      if [ $i -eq 2 ]; then
-        echo "    ],
+    else
+      [ $i -eq 2 ] && echo "    ],
     \"Routes\": [" >>$gost_conf_path
-        trans_conf=$(sed -n "${i}p" $raw_conf_path)
-        eachconf_retrieve
-        multiconfstart
-        method
-        multiconflast
-      else
-        trans_conf=$(sed -n "${i}p" $raw_conf_path)
-        eachconf_retrieve
-        multiconfstart
-        method
-        multiconflast
-      fi
+      multiconfstart
+      method
+      multiconflast
     fi
   done
 }
@@ -954,77 +738,49 @@ function show_all_conf() {
   echo -e "--------------------------------------------------------"
   echo -e "序号|方法\t    |本地端口\t|目的地地址:目的地端口"
   echo -e "--------------------------------------------------------"
-
   count_line=$(awk 'END{print NR}' $raw_conf_path)
-  for ((i = 1; i <= $count_line; i++)); do
+  for ((i = 1; i <= count_line; i++)); do
     trans_conf=$(sed -n "${i}p" $raw_conf_path)
     eachconf_retrieve
-
-    if [ "$is_encrypt" == "nonencrypt" ]; then
-      str="不加密中转"
-    elif [ "$is_encrypt" == "encrypttls" ]; then
-      str=" tls隧道 "
-    elif [ "$is_encrypt" == "encryptws" ]; then
-      str="  ws隧道 "
-    elif [ "$is_encrypt" == "encryptwss" ]; then
-      str=" wss隧道 "
-    elif [ "$is_encrypt" == "peerno" ]; then
-      str=" 不加密均衡负载 "
-    elif [ "$is_encrypt" == "peertls" ]; then
-      str=" tls隧道均衡负载 "
-    elif [ "$is_encrypt" == "peerws" ]; then
-      str="  ws隧道均衡负载 "
-    elif [ "$is_encrypt" == "peerwss" ]; then
-      str=" wss隧道均衡负载 "
-    elif [ "$is_encrypt" == "decrypttls" ]; then
-      str=" tls解密 "
-    elif [ "$is_encrypt" == "decryptws" ]; then
-      str="  ws解密 "
-    elif [ "$is_encrypt" == "decryptwss" ]; then
-      str=" wss解密 "
-    elif [ "$is_encrypt" == "ss" ]; then
-      str="   ss   "
-    elif [ "$is_encrypt" == "socks" ]; then
-      str=" socks5 "
-    elif [ "$is_encrypt" == "http" ]; then
-      str=" http "
-    elif [ "$is_encrypt" == "cdnno" ]; then
-      str="不加密转发CDN"
-    elif [ "$is_encrypt" == "cdnws" ]; then
-      str="ws隧道转发CDN"
-    elif [ "$is_encrypt" == "cdnwss" ]; then
-      str="wss隧道转发CDN"
-    elif [ "$is_encrypt" == "encryptmtls" ]; then
-      str=" mtls隧道 "
-    elif [ "$is_encrypt" == "encryptmws" ]; then
-      str=" mws隧道 "
-    elif [ "$is_encrypt" == "encryptmwss" ]; then
-      str=" mwss隧道 "
-    elif [ "$is_encrypt" == "peermtls" ]; then
-      str=" mtls隧道均衡负载 "
-    elif [ "$is_encrypt" == "peermws" ]; then
-      str=" mws隧道均衡负载 "
-    elif [ "$is_encrypt" == "peermwss" ]; then
-      str=" mwss隧道均衡负载 "
-    elif [ "$is_encrypt" == "decryptmtls" ]; then
-      str=" mtls解密 "
-    elif [ "$is_encrypt" == "decryptmws" ]; then
-      str=" mws解密 "
-    elif [ "$is_encrypt" == "decryptmwss" ]; then
-      str=" mwss解密 "
-    elif [ "$is_encrypt" == "cdnmws" ]; then
-      str="mws隧道转发CDN"
-    elif [ "$is_encrypt" == "cdnmwss" ]; then
-      str="mwss隧道转发CDN"
-    else
-      str=""
-    fi
-
+    case "$is_encrypt" in
+    nonencrypt) str="不加密中转" ;;
+    encrypttls) str=" tls隧道 " ;;
+    encryptws) str="  ws隧道 " ;;
+    encryptwss) str=" wss隧道 " ;;
+    encryptmtls) str=" mtls隧道 " ;;
+    encryptmws) str=" mws隧道 " ;;
+    encryptmwss) str=" mwss隧道 " ;;
+    peerno) str=" 不加密均衡负载 " ;;
+    peertls) str=" tls隧道均衡负载 " ;;
+    peerws) str="  ws隧道均衡负载 " ;;
+    peerwss) str=" wss隧道均衡负载 " ;;
+    peermtls) str=" mtls隧道均衡负载 " ;;
+    peermws) str=" mws隧道均衡负载 " ;;
+    peermwss) str=" mwss隧道均衡负载 " ;;
+    decrypttls) str=" tls解密 " ;;
+    decryptws) str="  ws解密 " ;;
+    decryptwss) str=" wss解密 " ;;
+    decryptmtls) str=" mtls解密 " ;;
+    decryptmws) str=" mws解密 " ;;
+    decryptmwss) str=" mwss解密 " ;;
+    ss) str="   ss   " ;;
+    socks) str=" socks5 " ;;
+    http) str=" http " ;;
+    ssws) str=" ss+ws " ;;
+    ssmws) str=" ss+mws " ;;
+    sswss) str=" ss+wss " ;;
+    ssmwss) str=" ss+mwss " ;;
+    cdnno) str="不加密转发CDN" ;;
+    cdnws) str="ws隧道转发CDN" ;;
+    cdnwss) str="wss隧道转发CDN" ;;
+    cdnmws) str="mws隧道转发CDN" ;;
+    cdnmwss) str="mwss隧道转发CDN" ;;
+    *) str="" ;;
+    esac
     echo -e " $i  |$str  |$s_port\t|$d_ip:$d_port"
     echo -e "--------------------------------------------------------"
   done
 }
-
 cron_restart() {
   echo -e "------------------------------------------------------------------"
   echo -e "gost定时重启任务: "
