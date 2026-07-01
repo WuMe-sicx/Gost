@@ -392,6 +392,9 @@ function encrypt() {
   echo -e "[1] tls隧道"
   echo -e "[2] ws隧道"
   echo -e "[3] wss隧道"
+  echo -e "[4] mtls隧道 (tls多路复用, 高并发下更省连接)"
+  echo -e "[5] mws隧道 (ws多路复用)"
+  echo -e "[6] mwss隧道 (wss多路复用, CDN场景推荐)"
   echo -e "注意: 同一则转发，中转与落地传输类型必须对应！本脚本默认开启tcp+udp"
   echo -e "-----------------------------------"
   read -p "请选择转发传输类型: " numencrypt
@@ -406,6 +409,16 @@ function encrypt() {
     flag_a="encryptwss"
     echo -e "注意: 选择 是 将针对落地的自定义证书开启证书校验保证安全性，稍后落地机务必填写${Red_font_prefix}域名${Font_color_suffix}"
     read -e -p "落地机是否开启了自定义tls证书？[y/n]:" is_cert
+  elif [ "$numencrypt" == "4" ]; then
+    flag_a="encryptmtls"
+    echo -e "注意: 选择 是 将针对落地的自定义证书开启证书校验保证安全性，稍后落地机务必填写${Red_font_prefix}域名${Font_color_suffix}"
+    read -e -p "落地机是否开启了自定义tls证书？[y/n]:" is_cert
+  elif [ "$numencrypt" == "5" ]; then
+    flag_a="encryptmws"
+  elif [ "$numencrypt" == "6" ]; then
+    flag_a="encryptmwss"
+    echo -e "注意: 选择 是 将针对落地的自定义证书开启证书校验保证安全性，稍后落地机务必填写${Red_font_prefix}域名${Font_color_suffix}"
+    read -e -p "落地机是否开启了自定义tls证书？[y/n]:" is_cert
   else
     echo "type error, please try again"
     exit
@@ -418,6 +431,9 @@ function enpeer() {
   echo -e "[2] tls隧道"
   echo -e "[3] ws隧道"
   echo -e "[4] wss隧道"
+  echo -e "[5] mtls隧道 (tls多路复用)"
+  echo -e "[6] mws隧道 (ws多路复用)"
+  echo -e "[7] mwss隧道 (wss多路复用)"
   echo -e "注意: 同一则转发，中转与落地传输类型必须对应！本脚本默认同一配置的传输类型相同"
   echo -e "此脚本仅支持简单型均衡负载，具体可参考官方文档"
   echo -e "gost均衡负载官方文档：https://docs.ginuerzh.xyz/gost/load-balancing"
@@ -432,7 +448,12 @@ function enpeer() {
     flag_a="peerws"
   elif [ "$numpeer" == "4" ]; then
     flag_a="peerwss"
-
+  elif [ "$numpeer" == "5" ]; then
+    flag_a="peermtls"
+  elif [ "$numpeer" == "6" ]; then
+    flag_a="peermws"
+  elif [ "$numpeer" == "7" ]; then
+    flag_a="peermwss"
   else
     echo "type error, please try again"
     exit
@@ -444,6 +465,8 @@ function cdn() {
   echo -e "[1] 不加密转发"
   echo -e "[2] ws隧道"
   echo -e "[3] wss隧道"
+  echo -e "[4] mws隧道 (ws多路复用)"
+  echo -e "[5] mwss隧道 (wss多路复用)"
   echo -e "注意: 同一则转发，中转与落地传输类型必须对应！"
   echo -e "此功能只需在中转机设置"
   echo -e "-----------------------------------"
@@ -455,6 +478,10 @@ function cdn() {
     flag_a="cdnws"
   elif [ "$numcdn" == "3" ]; then
     flag_a="cdnwss"
+  elif [ "$numcdn" == "4" ]; then
+    flag_a="cdnmws"
+  elif [ "$numcdn" == "5" ]; then
+    flag_a="cdnmwss"
   else
     echo "type error, please try again"
     exit
@@ -544,6 +571,9 @@ function decrypt() {
   echo -e "[1] tls"
   echo -e "[2] ws"
   echo -e "[3] wss"
+  echo -e "[4] mtls (tls多路复用)"
+  echo -e "[5] mws (ws多路复用)"
+  echo -e "[6] mwss (wss多路复用)"
   echo -e "注意: 同一则转发，中转与落地传输类型必须对应！本脚本默认开启tcp+udp"
   echo -e "-----------------------------------"
   read -p "请选择解密传输类型: " numdecrypt
@@ -554,6 +584,12 @@ function decrypt() {
     flag_a="decryptws"
   elif [ "$numdecrypt" == "3" ]; then
     flag_a="decryptwss"
+  elif [ "$numdecrypt" == "4" ]; then
+    flag_a="decryptmtls"
+  elif [ "$numdecrypt" == "5" ]; then
+    flag_a="decryptmws"
+  elif [ "$numdecrypt" == "6" ]; then
+    flag_a="decryptmwss"
   else
     echo "type error, please try again"
     exit
@@ -658,6 +694,68 @@ function method() {
       echo "        \"socks5://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
     elif [ "$is_encrypt" == "http" ]; then
       echo "        \"http://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "encryptmtls" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mtls://$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "encryptmws" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mws://$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "encryptmwss" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mwss://$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "peermtls" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mtls://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "peermws" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mws://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "peermwss" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mwss://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "cdnmws" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mws://$d_ip?host=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "cdnmwss" ]; then
+      echo "        \"tcp://:$s_port\",
+        \"udp://:$s_port\"
+    ],
+    \"ChainNodes\": [
+        \"relay+mwss://$d_ip?host=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "decryptmtls" ]; then
+      if [ -d "$HOME/gost_cert" ]; then
+        echo "        \"relay+mtls://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
+      else
+        echo "        \"relay+mtls://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+      fi
+    elif [ "$is_encrypt" == "decryptmws" ]; then
+      echo "        \"relay+mws://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "decryptmwss" ]; then
+      if [ -d "$HOME/gost_cert" ]; then
+        echo "        \"relay+mwss://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
+      else
+        echo "        \"relay+mwss://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+      fi
     else
       echo "config error"
     fi
@@ -739,6 +837,68 @@ function method() {
       echo "        \"socks5://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
     elif [ "$is_encrypt" == "http" ]; then
       echo "        \"http://$d_ip:$s_port@:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "encryptmtls" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mtls://$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "encryptmws" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mws://$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "encryptmwss" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mwss://$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "peermtls" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mtls://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "peermws" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mws://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "peermwss" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mwss://:?ip=/root/$d_ip.txt&strategy=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "cdnmws" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mws://$d_ip?host=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "cdnmwss" ]; then
+      echo "                \"tcp://:$s_port\",
+                \"udp://:$s_port\"
+            ],
+            \"ChainNodes\": [
+                \"relay+mwss://$d_ip?host=$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "decryptmtls" ]; then
+      if [ -d "$HOME/gost_cert" ]; then
+        echo "                \"relay+mtls://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
+      else
+        echo "                \"relay+mtls://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+      fi
+    elif [ "$is_encrypt" == "decryptmws" ]; then
+      echo "                \"relay+mws://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+    elif [ "$is_encrypt" == "decryptmwss" ]; then
+      if [ -d "$HOME/gost_cert" ]; then
+        echo "                \"relay+mwss://:$s_port/$d_ip:$d_port?cert=/root/gost_cert/cert.pem&key=/root/gost_cert/key.pem\"" >>$gost_conf_path
+      else
+        echo "                \"relay+mwss://:$s_port/$d_ip:$d_port\"" >>$gost_conf_path
+      fi
     else
       echo "config error"
     fi
@@ -819,6 +979,28 @@ function show_all_conf() {
       str="ws隧道转发CDN"
     elif [ "$is_encrypt" == "cdnwss" ]; then
       str="wss隧道转发CDN"
+    elif [ "$is_encrypt" == "encryptmtls" ]; then
+      str=" mtls隧道 "
+    elif [ "$is_encrypt" == "encryptmws" ]; then
+      str=" mws隧道 "
+    elif [ "$is_encrypt" == "encryptmwss" ]; then
+      str=" mwss隧道 "
+    elif [ "$is_encrypt" == "peermtls" ]; then
+      str=" mtls隧道均衡负载 "
+    elif [ "$is_encrypt" == "peermws" ]; then
+      str=" mws隧道均衡负载 "
+    elif [ "$is_encrypt" == "peermwss" ]; then
+      str=" mwss隧道均衡负载 "
+    elif [ "$is_encrypt" == "decryptmtls" ]; then
+      str=" mtls解密 "
+    elif [ "$is_encrypt" == "decryptmws" ]; then
+      str=" mws解密 "
+    elif [ "$is_encrypt" == "decryptmwss" ]; then
+      str=" mwss解密 "
+    elif [ "$is_encrypt" == "cdnmws" ]; then
+      str="mws隧道转发CDN"
+    elif [ "$is_encrypt" == "cdnmwss" ]; then
+      str="mwss隧道转发CDN"
     else
       str=""
     fi

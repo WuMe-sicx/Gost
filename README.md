@@ -35,6 +35,7 @@
 - 新支持传输类型
   - relay+ws
   - relay+wss
+  - relay+mtls / relay+mws / relay+mwss（多路复用，高并发更省连接，mwss 适合 CDN 场景）
 - 落地机一键创建ss/socks5/http代理 (gost内置)
 - 支持多传输类型的多落地简单型均衡负载
 - ~~增加gost国内加速下载镜像~~（被恶意刷流量导致我损失，不再提供）
