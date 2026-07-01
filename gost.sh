@@ -12,7 +12,7 @@ function checknew() {
   echo "你的gost版本为:""$checknew"""
   echo -n 是否更新\(y/n\)\:
   read checknewnum
-  if test $checknewnum = "y"; then
+  if test "$checknewnum" = "y"; then
     cp -r /etc/gost /tmp/
     Install_ct
     rm -rf /etc/gost
@@ -73,8 +73,8 @@ function check_new_ver() {
 }
 function check_file() {
   if test ! -d "/usr/lib/systemd/system/"; then
-    mkdir /usr/lib/systemd/system
-    chmod -R 777 /usr/lib/systemd/system
+    mkdir -p /usr/lib/systemd/system
+    chmod 755 /usr/lib/systemd/system
   fi
 }
 function check_nor_file() {
@@ -101,23 +101,23 @@ function Install_ct() {
     gunzip gost-linux-"$bit"-"$ct_new_ver".gz
     mv gost-linux-"$bit"-"$ct_new_ver" gost
     mv gost /usr/bin/gost
-    chmod -R 777 /usr/bin/gost
-    wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/gost.service && chmod -R 777 gost.service && mv gost.service /usr/lib/systemd/system
-    mkdir /etc/gost && wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/config.json && mv config.json /etc/gost && chmod -R 777 /etc/gost
+    chmod 755 /usr/bin/gost
+    wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/gost.service && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
+    mkdir /etc/gost && wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/config.json && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
   else
     rm -rf gost-linux-"$bit"-"$ct_new_ver".gz
     wget --no-check-certificate https://github.com/ginuerzh/gost/releases/download/v"$ct_new_ver"/gost-linux-"$bit"-"$ct_new_ver".gz
     gunzip gost-linux-"$bit"-"$ct_new_ver".gz
     mv gost-linux-"$bit"-"$ct_new_ver" gost
     mv gost /usr/bin/gost
-    chmod -R 777 /usr/bin/gost
-    wget --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/gost.service && chmod -R 777 gost.service && mv gost.service /usr/lib/systemd/system
-    mkdir /etc/gost && wget --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/config.json && mv config.json /etc/gost && chmod -R 777 /etc/gost
+    chmod 755 /usr/bin/gost
+    wget --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/gost.service && mv gost.service /usr/lib/systemd/system && chmod 644 /usr/lib/systemd/system/gost.service
+    mkdir /etc/gost && wget --no-check-certificate https://raw.githubusercontent.com/KANIKIG/Multi-EasyGost/master/config.json && mv config.json /etc/gost && chmod 755 /etc/gost && chmod 644 /etc/gost/config.json
   fi
 
   systemctl enable gost && systemctl restart gost
   echo "------------------------------"
-  if test -a /usr/bin/gost -a /usr/lib/systemctl/gost.service -a /etc/gost/config.json; then
+  if [ -f /usr/bin/gost ] && [ -f /usr/lib/systemd/system/gost.service ] && [ -f /etc/gost/config.json ]; then
     echo "gost安装成功"
     rm -rf "$(pwd)"/gost
     rm -rf "$(pwd)"/gost.service
@@ -131,8 +131,11 @@ function Install_ct() {
   fi
 }
 function Uninstall_ct() {
+  systemctl stop gost 2>/dev/null
+  systemctl disable gost 2>/dev/null
   rm -rf /usr/bin/gost
   rm -rf /usr/lib/systemd/system/gost.service
+  systemctl daemon-reload
   rm -rf /etc/gost
   rm -rf "$(pwd)"/gost.sh
   echo "gost已经成功删除"
@@ -512,7 +515,7 @@ function cert() {
       read -p "请输入Cloudflare Global API Key：" cfkey
       export CF_Key="${cfkey}"
       export CF_Email="${cfmail}"
-      if "$HOME"/.acme.sh/acme.sh --issue --dns dns_cf -d "${domain}" --standalone -k ec-256 --force; then
+      if "$HOME"/.acme.sh/acme.sh --issue --dns dns_cf -d "${domain}" -k ec-256 --force; then
         echo -e "SSL 证书生成成功，默认申请高安全性的ECC证书"
         if [ ! -d "$HOME/gost_cert" ]; then
           mkdir $HOME/gost_cert
@@ -851,12 +854,12 @@ cron_restart() {
     if [ "$numcrontype" == "1" ]; then
       echo -e "-----------------------------------"
       read -p "每？小时重启: " cronhr
-      echo "0 0 */$cronhr * * ? * systemctl restart gost" >>/etc/crontab
+      echo "0 */$cronhr * * * root systemctl restart gost" >>/etc/crontab
       echo -e "定时重启设置成功！"
     elif [ "$numcrontype" == "2" ]; then
       echo -e "-----------------------------------"
       read -p "每日？点重启: " cronhr
-      echo "0 0 $cronhr * * ? systemctl restart gost" >>/etc/crontab
+      echo "0 $cronhr * * * root systemctl restart gost" >>/etc/crontab
       echo -e "定时重启设置成功！"
     else
       echo "type error, please try again"
@@ -918,7 +921,7 @@ echo && echo -e "                 gost 一键安装配置脚本"${Red_font_prefi
  ${Green_font_prefix}10.${Font_color_suffix} gost定时重启配置
  ${Green_font_prefix}11.${Font_color_suffix} 自定义TLS证书配置
 ————————————" && echo
-read -e -p " 请输入数字 [1-9]:" num
+read -e -p " 请输入数字 [1-11]:" num
 case "$num" in
 1)
   Install_ct
@@ -974,6 +977,6 @@ case "$num" in
   cert
   ;;
 *)
-  echo "请输入正确数字 [1-9]"
+  echo "请输入正确数字 [1-11]"
   ;;
 esac
